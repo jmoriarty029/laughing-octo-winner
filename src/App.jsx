@@ -9,21 +9,17 @@ const clientKey = 'gp_client_id'
 let clientId = localStorage.getItem(clientKey)
 if (!clientId) { clientId = 'c_' + Math.random().toString(36).slice(2); localStorage.setItem(clientKey, clientId) }
 
-// --- Login implementation ---
-const USER_CODE = 'my-love-2025' // 🔐 Change this passcode for her
+const USER_CODE = 'my-love-2025'
 const USER_KEY = 'gp_user_ok'
 
-// Keys for localStorage drafts
 const DRAFT_TITLE_KEY = 'gp_draft_title';
 const DRAFT_DETAILS_KEY = 'gp_draft_details';
 const DRAFT_CATEGORY_KEY = 'gp_draft_category';
 const DRAFT_SEVERITY_KEY = 'gp_draft_severity';
 
 export default function App() {
-  // --- MODIFICATION: Using localStorage for permanent login ---
   const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
   const [input, setInput] = useState('');
-
   const [grievances, setGrievances] = useState([])
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
@@ -37,7 +33,6 @@ export default function App() {
 
   useEffect(() => {
     if (!loggedIn) return;
-
     const q = query(
       collection(db, 'grievances'),
       where('clientId', '==', clientId),
@@ -87,10 +82,14 @@ export default function App() {
 
   function handleLogin() {
     if (input === USER_CODE) {
-      // --- MODIFICATION: Using localStorage for permanent login ---
       localStorage.setItem(USER_KEY, 'true');
       setLoggedIn(true);
     }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(USER_KEY);
+    setLoggedIn(false);
   }
 
   if (!loggedIn) {
@@ -107,7 +106,8 @@ export default function App() {
             placeholder="Passcode" 
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           />
-          <button onClick={handleLogin} className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Enter</button>
+          {/* --- THIS IS THE FIX --- */}
+          <button onClick={() => handleLogin()} className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Enter</button>
         </div>
       </div>
     )
@@ -118,6 +118,7 @@ export default function App() {
       <header className="sticky top-0 z-10 backdrop-blur bg-white/60 border-b border-white/40">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-pink-600">💌 Grievance Portal</h1>
+          <button onClick={handleLogout} className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold">Logout</button>
         </div>
       </header>
 
