@@ -3,11 +3,20 @@ import { db } from './firebase'
 import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
+import usePageMeta from './usePageMeta'; // <-- 1. IMPORT THE HOOK
 
 const ADMIN_CODE = 'love-2025'
 const ADMIN_KEY = 'gp_admin_ok'
 
 export default function Admin() {
+  // --- THIS IS THE FIX ---
+  // 2. USE THE HOOK TO SET METADATA FOR THE ADMIN APP
+  usePageMeta({
+    title: '🛠️ Admin Dashboard',
+    manifest: '/manifest.admin.json',
+    themeColor: '#475569'
+  });
+
   const [ok, setOk] = useState(localStorage.getItem(ADMIN_KEY) === 'true')
   const [input, setInput] = useState('')
   const [items, setItems] = useState([])
@@ -49,8 +58,6 @@ export default function Admin() {
     await updateDoc(doc(db, 'grievances', id), { updates: arrayUnion({ text: text.trim(), at: serverTimestamp() }) })
   }
   
-  // --- THIS IS THE FIX ---
-  // New function to delete a grievance from the database.
   async function deleteGrievance(id) {
     // In a real app, you'd use a custom modal here instead of window.confirm
     if (confirm('Are you sure you want to delete this grievance?')) {
@@ -92,17 +99,18 @@ export default function Admin() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <header className="flex flex-col sm:flex-row items-center gap-3 justify-between mb-6">
+      {/* --- THIS IS THE FIX --- Header is now responsive */}
+      <header className="flex flex-col sm:flex-row items-center gap-4 justify-between mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Admin Dashboard</h1>
           <button onClick={handleLogout} className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold">Logout</button>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <select value={fs} onChange={e=>setFs(e.target.value)} className="border rounded-xl px-3 py-2">
-            <option value="">All</option><option>Filed</option><option>Working</option><option>Resolved</option>
+            <option value="">All Statuses</option><option>Filed</option><option>Working</option><option>Resolved</option>
           </select>
           <select value={fv} onChange={e=>setFv(e.target.value)} className="border rounded-xl px-3 py-2">
-            <option value="">All</option><option>Low</option><option>Medium</option><option>High</option>
+            <option value="">All Severities</option><option>Low</option><option>Medium</option><option>High</option>
           </select>
           <input value={term} onChange={e=>setTerm(e.target.value)} className="border rounded-xl px-3 py-2" placeholder="Search…" />
         </div>
@@ -117,18 +125,18 @@ export default function Admin() {
       <section className="space-y-3">
         {filtered.map((g)=> (
           <div key={g.id} className="bg-white rounded-2xl shadow p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            {/* --- THIS IS THE FIX --- Grievance card is now responsive */}
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+              <div className="w-full">
                 <h3 className="text-lg font-semibold text-slate-800">{g.title}</h3>
                 {g.details && <p className="text-sm text-gray-700 mt-1">{g.details}</p>}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.severity==='High'?'bg-red-100 text-red-700 border-red-200': g.severity==='Medium'?'bg-yellow-100 text-yellow-700 border-yellow-200':'bg-green-100 text-green-700 border-green-200'}`}>{g.severity||'Medium'}</span>
                   <span className="px-2 py-0.5 rounded-full text-sm border bg-indigo-100 text-indigo-700 border-indigo-200">{g.category||'Other'}</span>
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
-                  {/* --- THIS IS THE FIX --- Client ID box has been removed. */}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 shrink-0 w-52">
+              <div className="flex flex-col gap-2 shrink-0 w-full sm:w-52">
                 <select value={g.status} onChange={e=>setStatus(g.id, e.target.value)} className="border rounded-lg px-2 py-1">
                   {['Filed','Working','Resolved'].map(s=> <option key={s}>{s}</option>)}
                 </select>
@@ -139,7 +147,6 @@ export default function Admin() {
                       addNote(g.id, t)
                       document.getElementById(`note-${g.id}`).value=''
                     }} className="flex-grow px-3 py-1 rounded-lg bg-slate-800 text-white text-sm">Post Update</button>
-                    {/* --- THIS IS THE FIX --- Added a delete button. */}
                     <button onClick={() => deleteGrievance(g.id)} className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
                 </div>
               </div>
