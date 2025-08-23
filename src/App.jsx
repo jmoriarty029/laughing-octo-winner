@@ -21,6 +21,7 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
   const [input, setInput] = useState('');
   const [grievances, setGrievances] = useState([])
+  const [error, setError] = useState(null); // State to hold any Firebase errors
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
   const [category, setCategory] = useState(localStorage.getItem(DRAFT_CATEGORY_KEY) || 'Attention')
@@ -33,6 +34,7 @@ export default function App() {
 
   useEffect(() => {
     if (!loggedIn) return;
+    setError(null); // Reset error on re-fetch
     const q = query(
       collection(db, 'grievances'),
       where('clientId', '==', clientId),
@@ -42,6 +44,12 @@ export default function App() {
       const list = []
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
       setGrievances(list)
+    }, (err) => {
+        // --- THIS IS THE FIX ---
+        // If Firebase returns an error (e.g., permission denied, missing index),
+        // we'll log it and display a message to the user.
+        console.error("Firebase query failed:", err);
+        setError("Could not load grievances. Check the console for details.");
     })
     return () => unsub()
   }, [loggedIn])
@@ -106,7 +114,6 @@ export default function App() {
             placeholder="Passcode" 
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           />
-          {/* --- THIS IS THE FIX --- */}
           <button onClick={() => handleLogin()} className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Enter</button>
         </div>
       </div>
@@ -157,7 +164,11 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
-          {grievances.length===0 && (
+          {/* --- THIS IS THE FIX --- */}
+          {/* Display an error message if something goes wrong */}
+          {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-xl">{error}</div>}
+
+          {!error && grievances.length === 0 && (
             <div className="text-center text-gray-500">No grievances yet 😇</div>
           )}
           {grievances.map((g)=> (
