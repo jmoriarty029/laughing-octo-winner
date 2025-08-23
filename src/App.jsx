@@ -36,9 +36,6 @@ export default function App() {
     if (!loggedIn) return;
     setError(null);
     
-    // --- THIS IS THE FIX ---
-    // We removed the orderBy('createdAt') from the query.
-    // This makes the query simple enough that it doesn't need a special index.
     const q = query(
       collection(db, 'grievances'),
       where('clientId', '==', clientId)
@@ -49,8 +46,13 @@ export default function App() {
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
       
       // --- THIS IS THE FIX ---
-      // Now, we sort the data here in the app code after we receive it.
-      list.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
+      // This is a safer way to sort. It handles cases where 'createdAt'
+      // might not exist on an item, preventing the app from crashing.
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
 
       setGrievances(list)
     }, (err) => {
