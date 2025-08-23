@@ -210,7 +210,7 @@ export default function App() {
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   </div>
                   
-                  {/* --- THIS IS THE FIX for showing update notes --- */}
+                  {/* --- THIS IS THE DEFINITIVE FIX for showing update notes --- */}
                   {/* This block now correctly handles and displays the updates array. */}
                   {Array.isArray(g.updates) && g.updates.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
