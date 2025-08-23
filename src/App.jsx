@@ -251,4 +251,4 @@ export default function App() {
       <InstallPrompt/>
     </div>
   )
-                    }
+}
