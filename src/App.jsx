@@ -36,28 +36,22 @@ export default function App() {
     if (!loggedIn) return;
     setError(null);
     
+    // --- THIS IS THE FIX ---
+    // Reverted to the original, more efficient query.
+    // This WILL cause the "Could not load grievances" error until you create the index.
     const q = query(
       collection(db, 'grievances'),
-      where('clientId', '==', clientId)
+      where('clientId', '==', clientId),
+      orderBy('createdAt', 'desc')
     )
 
     const unsub = onSnapshot(q, (snap) => {
       const list = []
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
-      
-      // --- THIS IS THE FIX ---
-      // This is a safer way to sort. It handles cases where 'createdAt'
-      // might not exist on an item, preventing the app from crashing.
-      list.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || 0;
-        const timeB = b.createdAt?.seconds || 0;
-        return timeB - timeA;
-      });
-
       setGrievances(list)
     }, (err) => {
         console.error("Firebase query failed:", err);
-        setError("Could not load grievances. Check the console for details.");
+        setError("Could not load grievances. Please create the database index in Firebase.");
     })
     return () => unsub()
   }, [loggedIn])
