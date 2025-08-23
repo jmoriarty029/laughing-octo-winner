@@ -116,7 +116,6 @@ export default function App() {
     }
   }
 
-  // --- THIS IS THE FIX for the blank screen on logout ---
   // This function now properly clears all user data from the app's memory,
   // which prevents the crash when returning to the login screen.
   function handleLogout() {
@@ -211,14 +210,23 @@ export default function App() {
                   </div>
                   
                   {/* --- THIS IS THE DEFINITIVE FIX for showing update notes --- */}
-                  {/* This block now correctly handles and displays the updates array. */}
+                  {/* This block is rewritten to be completely safe and handle all data states. */}
                   {Array.isArray(g.updates) && g.updates.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
                       <h4 className="font-semibold text-slate-700 mb-2">Updates:</h4>
                       <ul className="space-y-2">
-                        {[...g.updates] // Create a safe copy before sorting
-                          .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0)) // Sort by timestamp, newest first
+                        {[...g.updates] // Create a safe copy of the array before sorting
+                          .sort((a, b) => {
+                            // Safely get timestamps, defaulting to 0 if they don't exist
+                            const timeA = a?.at?.seconds || 0;
+                            const timeB = b?.at?.seconds || 0;
+                            return timeB - timeA; // Sort newest first
+                          })
                           .map((update, index) => {
+                            // Defensive check to ensure the update object is valid
+                            if (!update || typeof update.text !== 'string') {
+                              return null; // Skip rendering if data is malformed
+                            }
                             const updateDate = update.at?.toDate ? update.at.toDate() : null;
                             return (
                               <li key={index} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
