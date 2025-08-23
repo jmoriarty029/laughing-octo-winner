@@ -116,6 +116,7 @@ export default function App() {
     }
   }
 
+  // --- THIS IS THE FIX for the blank screen on logout ---
   // This function now properly clears all user data from the app's memory,
   // which prevents the crash when returning to the login screen.
   function handleLogout() {
@@ -250,4 +251,4 @@ export default function App() {
       <InstallPrompt/>
     </div>
   )
-}
+                    }
