@@ -4,14 +4,11 @@ import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp
 } from 'firebase/firestore'
 
-// 🔐 You can change this passcode to your own secret.
 const ADMIN_CODE = 'love-2025'
-const ADMIN_KEY = 'gp_admin_ok' // Key for local storage
+const ADMIN_KEY = 'gp_admin_ok'
 
 export default function Admin() {
-  // --- MODIFICATION: Initialize state from localStorage ---
   const [ok, setOk] = useState(localStorage.getItem(ADMIN_KEY) === 'true')
-
   const [input, setInput] = useState('')
   const [items, setItems] = useState([])
   const [fs, setFs] = useState('')
@@ -54,10 +51,14 @@ export default function Admin() {
   
   function handleLogin() {
     if (input === ADMIN_CODE) {
-      // --- MODIFICATION: Save login status to localStorage ---
       localStorage.setItem(ADMIN_KEY, 'true')
       setOk(true)
     }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(ADMIN_KEY);
+    setOk(false);
   }
 
   if (!ok) {
@@ -74,7 +75,8 @@ export default function Admin() {
             placeholder="Passcode"
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           />
-          <button onClick={handleLogin} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
+          {/* --- THIS IS THE FIX --- */}
+          <button onClick={() => handleLogin()} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
         </div>
       </div>
     )
@@ -83,7 +85,10 @@ export default function Admin() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <header className="flex flex-col sm:flex-row items-center gap-3 justify-between mb-6">
-        <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Admin Dashboard</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Admin Dashboard</h1>
+          <button onClick={handleLogout} className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold">Logout</button>
+        </div>
         <div className="flex gap-2">
           <select value={fs} onChange={e=>setFs(e.target.value)} className="border rounded-xl px-3 py-2">
             <option value="">All</option><option>Filed</option><option>Working</option><option>Resolved</option>
@@ -132,4 +137,4 @@ export default function Admin() {
       </section>
     </div>
   )
-}
+                                                                              }
