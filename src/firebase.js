@@ -4,17 +4,17 @@ import { getFirestore } from "firebase/firestore";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration using Environment Variables
-// For security, these values should be stored in a .env.local file for local development
-// and as environment variables in your deployment platform (e.g., Vercel).
+// Your web app's Firebase configuration
+// WARNING: For security, it is strongly recommended to use environment variables
+// instead of hardcoding these keys in your code.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_API_KEY,
-  authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_APP_ID,
-  measurementId: import.meta.env.VITE_MEASUREMENT_ID
+  apiKey: "AIzaSyD7h7fGXyPyLoOmBFsDF_BPNpylB916pMs",
+  authDomain: "laughing-octo-winner.firebaseapp.com",
+  projectId: "laughing-octo-winner",
+  storageBucket: "laughing-octo-winner.firebasestorage.app",
+  messagingSenderId: "929553672352",
+  appId: "1:929553672352:web:46d4632a49fe56593bc1c5",
+  measurementId: "G-ZDXCRP06WB"
 };
 
 // Initialize Firebase
