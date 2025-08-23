@@ -9,14 +9,35 @@ const clientKey = 'gp_client_id'
 let clientId = localStorage.getItem(clientKey)
 if (!clientId) { clientId = 'c_' + Math.random().toString(36).slice(2); localStorage.setItem(clientKey, clientId) }
 
+// --- Login implementation ---
+const USER_CODE = 'my-love-2025' // 🔐 Change this passcode for her
+const USER_KEY = 'gp_user_ok'
+
+// Keys for localStorage drafts
+const DRAFT_TITLE_KEY = 'gp_draft_title';
+const DRAFT_DETAILS_KEY = 'gp_draft_details';
+const DRAFT_CATEGORY_KEY = 'gp_draft_category';
+const DRAFT_SEVERITY_KEY = 'gp_draft_severity';
+
 export default function App() {
+  // --- MODIFICATION: Using localStorage for permanent login ---
+  const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
+  const [input, setInput] = useState('');
+
   const [grievances, setGrievances] = useState([])
-  const [title, setTitle] = useState('')
-  const [details, setDetails] = useState('')
-  const [category, setCategory] = useState('Attention')
-  const [severity, setSeverity] = useState('Medium')
+  const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
+  const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
+  const [category, setCategory] = useState(localStorage.getItem(DRAFT_CATEGORY_KEY) || 'Attention')
+  const [severity, setSeverity] = useState(localStorage.getItem(DRAFT_SEVERITY_KEY) || 'Medium')
+
+  useEffect(() => { localStorage.setItem(DRAFT_TITLE_KEY, title) }, [title])
+  useEffect(() => { localStorage.setItem(DRAFT_DETAILS_KEY, details) }, [details])
+  useEffect(() => { localStorage.setItem(DRAFT_CATEGORY_KEY, category) }, [category])
+  useEffect(() => { localStorage.setItem(DRAFT_SEVERITY_KEY, severity) }, [severity])
 
   useEffect(() => {
+    if (!loggedIn) return;
+
     const q = query(
       collection(db, 'grievances'),
       where('clientId', '==', clientId),
@@ -28,7 +49,7 @@ export default function App() {
       setGrievances(list)
     })
     return () => unsub()
-  }, [])
+  }, [loggedIn])
 
   const stats = useMemo(() => ({
     total: grievances.length,
@@ -50,8 +71,46 @@ export default function App() {
       createdAt: serverTimestamp(),
       updates: [],
     })
-    setTitle(''); setDetails(''); setSeverity('Medium')
+    
+    setTitle(''); 
+    setDetails(''); 
+    setCategory('Attention');
+    setSeverity('Medium');
+    
+    localStorage.removeItem(DRAFT_TITLE_KEY);
+    localStorage.removeItem(DRAFT_DETAILS_KEY);
+    localStorage.removeItem(DRAFT_CATEGORY_KEY);
+    localStorage.removeItem(DRAFT_SEVERITY_KEY);
+
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function handleLogin() {
+    if (input === USER_CODE) {
+      // --- MODIFICATION: Using localStorage for permanent login ---
+      localStorage.setItem(USER_KEY, 'true');
+      setLoggedIn(true);
+    }
+  }
+
+  if (!loggedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+          <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Login</h1>
+          <p className="text-sm text-gray-600 mb-4">Please enter your passcode.</p>
+          <input 
+            type="password" 
+            value={input} 
+            onChange={e => setInput(e.target.value)} 
+            className="border rounded-xl px-3 py-2 w-full" 
+            placeholder="Passcode" 
+            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          />
+          <button onClick={handleLogin} className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Enter</button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -110,7 +169,6 @@ export default function App() {
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.severity==='High'?'bg-red-100 text-red-700 border-red-200': g.severity==='Medium'?'bg-yellow-100 text-yellow-700 border-yellow-200':'bg-green-100 text-green-700 border-green-200'}`}>{g.severity}</span>
                     <span className="px-2 py-0.5 rounded-full text-sm border bg-indigo-100 text-indigo-700 border-indigo-200">{g.category||'Other'}</span>
                     <span className="px-2 py-0.5 rounded-full text-sm border bg-gray-100 text-gray-700 border-gray-200">{g.createdAt?.toDate?.().toLocaleString?.() || ''}</span>
-                    {/* THIS IS THE CORRECTED LINE */}
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   </div>
                   {Array.isArray(g.updates) && g.updates.length>0 && (
@@ -131,4 +189,4 @@ export default function App() {
       <InstallPrompt/>
     </div>
   )
-              }
+}
