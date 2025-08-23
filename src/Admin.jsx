@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { db } from './firebase'
 import {
-  collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp
+  collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
 
 const ADMIN_CODE = 'love-2025'
@@ -49,6 +49,15 @@ export default function Admin() {
     await updateDoc(doc(db, 'grievances', id), { updates: arrayUnion({ text: text.trim(), at: serverTimestamp() }) })
   }
   
+  // --- THIS IS THE FIX ---
+  // New function to delete a grievance from the database.
+  async function deleteGrievance(id) {
+    // In a real app, you'd use a custom modal here instead of window.confirm
+    if (confirm('Are you sure you want to delete this grievance?')) {
+        await deleteDoc(doc(db, 'grievances', id));
+    }
+  }
+
   function handleLogin() {
     if (input === ADMIN_CODE) {
       localStorage.setItem(ADMIN_KEY, 'true')
@@ -75,7 +84,6 @@ export default function Admin() {
             placeholder="Passcode"
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           />
-          {/* --- THIS IS THE FIX --- */}
           <button onClick={() => handleLogin()} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
         </div>
       </div>
@@ -117,7 +125,7 @@ export default function Admin() {
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.severity==='High'?'bg-red-100 text-red-700 border-red-200': g.severity==='Medium'?'bg-yellow-100 text-yellow-700 border-yellow-200':'bg-green-100 text-green-700 border-green-200'}`}>{g.severity||'Medium'}</span>
                   <span className="px-2 py-0.5 rounded-full text-sm border bg-indigo-100 text-indigo-700 border-indigo-200">{g.category||'Other'}</span>
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
-                  <span className="px-2 py-0.5 rounded-full text-sm border bg-gray-100 text-gray-700 border-gray-200">client: {g.clientId||'-'}</span>
+                  {/* --- THIS IS THE FIX --- Client ID box has been removed. */}
                 </div>
               </div>
               <div className="flex flex-col gap-2 shrink-0 w-52">
@@ -125,11 +133,15 @@ export default function Admin() {
                   {['Filed','Working','Resolved'].map(s=> <option key={s}>{s}</option>)}
                 </select>
                 <textarea id={`note-${g.id}`} rows={2} placeholder="Add update…" className="border rounded-lg px-2 py-1"></textarea>
-                <button onClick={()=>{
-                  const t = document.getElementById(`note-${g.id}`).value
-                  addNote(g.id, t)
-                  document.getElementById(`note-${g.id}`).value=''
-                }} className="px-3 py-1 rounded-lg bg-slate-800 text-white text-sm">Post Update</button>
+                <div className="flex gap-2">
+                    <button onClick={()=>{
+                      const t = document.getElementById(`note-${g.id}`).value
+                      addNote(g.id, t)
+                      document.getElementById(`note-${g.id}`).value=''
+                    }} className="flex-grow px-3 py-1 rounded-lg bg-slate-800 text-white text-sm">Post Update</button>
+                    {/* --- THIS IS THE FIX --- Added a delete button. */}
+                    <button onClick={() => deleteGrievance(g.id)} className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
+                </div>
               </div>
             </div>
           </div>
@@ -137,4 +149,4 @@ export default function Admin() {
       </section>
     </div>
   )
-                                                                              }
+}
