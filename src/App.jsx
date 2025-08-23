@@ -4,6 +4,7 @@ import { db } from './firebase'
 import {
   addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore'
+import usePageMeta from './usePageMeta'; // <-- 1. IMPORT THE HOOK
 
 const clientKey = 'gp_client_id'
 let clientId = localStorage.getItem(clientKey)
@@ -18,10 +19,18 @@ const DRAFT_CATEGORY_KEY = 'gp_draft_category';
 const DRAFT_SEVERITY_KEY = 'gp_draft_severity';
 
 export default function App() {
+  // --- THIS IS THE FIX ---
+  // 2. USE THE HOOK TO SET METADATA FOR THE USER APP
+  usePageMeta({
+    title: '💌 Grievance Portal',
+    manifest: '/manifest.json',
+    themeColor: '#ec4899'
+  });
+
   const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
   const [input, setInput] = useState('');
   const [grievances, setGrievances] = useState([])
-  const [isLoading, setIsLoading] = useState(true); // To show a loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
@@ -42,9 +51,6 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     
-    // --- THIS IS THE FIX ---
-    // We are using a simple query that only filters by clientId.
-    // This does not require a special composite index.
     const q = query(
       collection(db, 'grievances'),
       where('clientId', '==', clientId)
@@ -54,9 +60,6 @@ export default function App() {
       const list = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
       
-      // --- THIS IS THE FIX ---
-      // This is a much safer way to sort the data on the client-side.
-      // It handles cases where 'createdAt' might be missing, preventing crashes.
       list.sort((a, b) => {
         const timeA = a.createdAt?.seconds || 0;
         const timeB = b.createdAt?.seconds || 0;
