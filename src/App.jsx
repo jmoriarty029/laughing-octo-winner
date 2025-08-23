@@ -116,15 +116,14 @@ export default function App() {
     }
   }
 
-  // --- THIS IS THE FIX ---
-  // The logout function now resets all state variables to their initial values.
-  // This prevents the app from crashing when it re-renders the login screen.
+  // --- THIS IS THE FIX for the blank screen on logout ---
+  // This function now properly clears all user data from the app's memory,
+  // which prevents the crash when returning to the login screen.
   function handleLogout() {
     localStorage.removeItem(USER_KEY);
     setLoggedIn(false);
-    setGrievances([]);
-    setError(null);
-    setIsLoading(true);
+    setGrievances([]); // Clear the grievances data
+    setError(null);     // Clear any errors
   }
 
   if (!loggedIn) {
@@ -211,30 +210,25 @@ export default function App() {
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   </div>
                   
-                  {/* --- THIS IS THE FIX --- */}
-                  {/* This block is now more robust for displaying updates. */}
+                  {/* --- THIS IS THE FIX for showing update notes --- */}
+                  {/* This block now correctly handles and displays the updates array. */}
                   {Array.isArray(g.updates) && g.updates.length > 0 && (
                     <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
                       <h4 className="font-semibold text-slate-700 mb-2">Updates:</h4>
                       <ul className="space-y-2">
-                        {g.updates
-                          .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0))
+                        {[...g.updates] // Create a safe copy before sorting
+                          .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0)) // Sort by timestamp, newest first
                           .map((update, index) => {
-                          if (!update || typeof update.text !== 'string') {
-                            return null;
-                          }
-                          const updateDate = update.at && typeof update.at.toDate === 'function' ? update.at.toDate() : null;
-                          const key = update.at?.seconds ? `${update.at.seconds}-${index}` : `update-${index}`;
-
-                          return (
-                            <li key={key} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
-                              <p className="font-medium">"{update.text}"</p>
-                              {updateDate && (
-                                <p className="text-[10px] text-gray-500 mt-1">{updateDate.toLocaleString()}</p>
-                              )}
-                            </li>
-                          );
-                        })}
+                            const updateDate = update.at?.toDate ? update.at.toDate() : null;
+                            return (
+                              <li key={index} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
+                                <p className="font-medium">"{update.text}"</p>
+                                {updateDate && (
+                                  <p className="text-[10px] text-gray-500 mt-1">{updateDate.toLocaleString()}</p>
+                                )}
+                              </li>
+                            );
+                          })}
                       </ul>
                     </div>
                   )}
