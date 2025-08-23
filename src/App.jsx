@@ -4,7 +4,7 @@ import { db } from './firebase'
 import {
   addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore'
-import usePageMeta from './usePageMeta'; // <-- 1. IMPORT THE HOOK
+import usePageMeta from './usePageMeta';
 
 const clientKey = 'gp_client_id'
 let clientId = localStorage.getItem(clientKey)
@@ -19,8 +19,6 @@ const DRAFT_CATEGORY_KEY = 'gp_draft_category';
 const DRAFT_SEVERITY_KEY = 'gp_draft_severity';
 
 export default function App() {
-  // --- THIS IS THE FIX ---
-  // 2. USE THE HOOK TO SET METADATA FOR THE USER APP
   usePageMeta({
     title: '💌 Grievance Portal',
     manifest: '/manifest.json',
@@ -206,12 +204,26 @@ export default function App() {
                     <span className="px-2 py-0.5 rounded-full text-sm border bg-gray-100 text-gray-700 border-gray-200">{g.createdAt?.toDate?.().toLocaleString?.() || ''}</span>
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   </div>
-                  {Array.isArray(g.updates) && g.updates.length>0 && (
-                    <div className="mt-3 text-sm">
-                      <div className="font-semibold text-slate-700 mb-1">Updates from him:</div>
-                      {g.updates.map((u,i)=> (
-                        <div key={i} className="text-xs text-gray-700">• {u.text} <span className="text-[10px] opacity-60">{u.at?.seconds? new Date(u.at.seconds*1000).toLocaleString(): ''}</span></div>
-                      ))}
+                  
+                  {/* --- THIS IS THE FIX --- */}
+                  {/* This block is now more robust for displaying updates. */}
+                  {Array.isArray(g.updates) && g.updates.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
+                      <h4 className="font-semibold text-slate-700 mb-2">Updates:</h4>
+                      <ul className="space-y-2">
+                        {g.updates.map((update, index) => {
+                          // Safely create a date object
+                          const updateDate = update.at?.toDate ? update.at.toDate() : null;
+                          return (
+                            <li key={`${update.at?.seconds}-${index}`} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
+                              <p className="font-medium">"{update.text}"</p>
+                              {updateDate && (
+                                <p className="text-[10px] text-gray-500 mt-1">{updateDate.toLocaleString()}</p>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
                   )}
                 </div>
