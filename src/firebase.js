@@ -1,8 +1,9 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore"; // <-- ADD THIS IMPORT
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyD7h7fGXyPyLoOmBFsDF_BPNpylB916pMs",
   authDomain: "laughing-octo-winner.firebaseapp.com",
@@ -16,6 +17,5 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// --- THIS IS THE FIX ---
 // Initialize Cloud Firestore and export it for other files to use
 export const db = getFirestore(app);
