@@ -21,7 +21,7 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
   const [input, setInput] = useState('');
   const [grievances, setGrievances] = useState([])
-  const [error, setError] = useState(null); // State to hold any Firebase errors
+  const [error, setError] = useState(null);
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
   const [category, setCategory] = useState(localStorage.getItem(DRAFT_CATEGORY_KEY) || 'Attention')
@@ -34,20 +34,26 @@ export default function App() {
 
   useEffect(() => {
     if (!loggedIn) return;
-    setError(null); // Reset error on re-fetch
+    setError(null);
+    
+    // --- THIS IS THE FIX ---
+    // We removed the orderBy('createdAt') from the query.
+    // This makes the query simple enough that it doesn't need a special index.
     const q = query(
       collection(db, 'grievances'),
-      where('clientId', '==', clientId),
-      orderBy('createdAt', 'desc')
+      where('clientId', '==', clientId)
     )
+
     const unsub = onSnapshot(q, (snap) => {
       const list = []
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
+      
+      // --- THIS IS THE FIX ---
+      // Now, we sort the data here in the app code after we receive it.
+      list.sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
+
       setGrievances(list)
     }, (err) => {
-        // --- THIS IS THE FIX ---
-        // If Firebase returns an error (e.g., permission denied, missing index),
-        // we'll log it and display a message to the user.
         console.error("Firebase query failed:", err);
         setError("Could not load grievances. Check the console for details.");
     })
@@ -164,8 +170,6 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
-          {/* --- THIS IS THE FIX --- */}
-          {/* Display an error message if something goes wrong */}
           {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-xl">{error}</div>}
 
           {!error && grievances.length === 0 && (
