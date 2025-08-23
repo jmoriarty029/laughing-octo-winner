@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import InstallPrompt from './InstallPrompt'
 import { db } from './firebase'
 import {
-  addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, where
+  addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore'
 
 const clientKey = 'gp_client_id'
@@ -21,6 +21,7 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(localStorage.getItem(USER_KEY) === 'true');
   const [input, setInput] = useState('');
   const [grievances, setGrievances] = useState([])
+  const [isLoading, setIsLoading] = useState(true); // To show a loading state
   const [error, setError] = useState(null);
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '')
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '')
@@ -33,28 +34,45 @@ export default function App() {
   useEffect(() => { localStorage.setItem(DRAFT_SEVERITY_KEY, severity) }, [severity])
 
   useEffect(() => {
-    if (!loggedIn) return;
+    if (!loggedIn) {
+      setIsLoading(false);
+      return;
+    }
+    
+    setIsLoading(true);
     setError(null);
     
     // --- THIS IS THE FIX ---
-    // Reverted to the original, more efficient query.
-    // This WILL cause the "Could not load grievances" error until you create the index.
+    // We are using a simple query that only filters by clientId.
+    // This does not require a special composite index.
     const q = query(
       collection(db, 'grievances'),
-      where('clientId', '==', clientId),
-      orderBy('createdAt', 'desc')
-    )
+      where('clientId', '==', clientId)
+    );
 
     const unsub = onSnapshot(q, (snap) => {
-      const list = []
-      snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
-      setGrievances(list)
+      const list = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      
+      // --- THIS IS THE FIX ---
+      // This is a much safer way to sort the data on the client-side.
+      // It handles cases where 'createdAt' might be missing, preventing crashes.
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      setGrievances(list);
+      setIsLoading(false);
     }, (err) => {
         console.error("Firebase query failed:", err);
-        setError("Could not load grievances. Please create the database index in Firebase.");
-    })
-    return () => unsub()
-  }, [loggedIn])
+        setError("Could not load grievances. Please check your connection and Firestore Rules.");
+        setIsLoading(false);
+    });
+
+    return () => unsub();
+  }, [loggedIn]);
 
   const stats = useMemo(() => ({
     total: grievances.length,
@@ -166,12 +184,14 @@ export default function App() {
         </section>
 
         <section className="space-y-3">
+          {isLoading && <div className="text-center text-gray-500">Loading grievances...</div>}
           {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-xl">{error}</div>}
 
-          {!error && grievances.length === 0 && (
+          {!isLoading && !error && grievances.length === 0 && (
             <div className="text-center text-gray-500">No grievances yet 😇</div>
           )}
-          {grievances.map((g)=> (
+
+          {!isLoading && !error && grievances.map((g)=> (
             <div key={g.id} className="bg-white rounded-2xl shadow p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
