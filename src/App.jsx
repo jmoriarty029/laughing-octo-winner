@@ -116,9 +116,15 @@ export default function App() {
     }
   }
 
+  // --- THIS IS THE FIX ---
+  // The logout function now resets all state variables to their initial values.
+  // This prevents the app from crashing when it re-renders the login screen.
   function handleLogout() {
     localStorage.removeItem(USER_KEY);
     setLoggedIn(false);
+    setGrievances([]);
+    setError(null);
+    setIsLoading(true);
   }
 
   if (!loggedIn) {
@@ -211,11 +217,17 @@ export default function App() {
                     <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
                       <h4 className="font-semibold text-slate-700 mb-2">Updates:</h4>
                       <ul className="space-y-2">
-                        {g.updates.map((update, index) => {
-                          // Safely create a date object
-                          const updateDate = update.at?.toDate ? update.at.toDate() : null;
+                        {g.updates
+                          .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0))
+                          .map((update, index) => {
+                          if (!update || typeof update.text !== 'string') {
+                            return null;
+                          }
+                          const updateDate = update.at && typeof update.at.toDate === 'function' ? update.at.toDate() : null;
+                          const key = update.at?.seconds ? `${update.at.seconds}-${index}` : `update-${index}`;
+
                           return (
-                            <li key={`${update.at?.seconds}-${index}`} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
+                            <li key={key} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
                               <p className="font-medium">"{update.text}"</p>
                               {updateDate && (
                                 <p className="text-[10px] text-gray-500 mt-1">{updateDate.toLocaleString()}</p>
