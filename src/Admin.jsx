@@ -6,9 +6,12 @@ import {
 
 // 🔐 You can change this passcode to your own secret.
 const ADMIN_CODE = 'love-2025'
+const ADMIN_KEY = 'gp_admin_ok' // Key for local storage
 
 export default function Admin() {
-  const [ok, setOk] = useState(false)
+  // --- MODIFICATION: Initialize state from localStorage ---
+  const [ok, setOk] = useState(localStorage.getItem(ADMIN_KEY) === 'true')
+
   const [input, setInput] = useState('')
   const [items, setItems] = useState([])
   const [fs, setFs] = useState('')
@@ -48,6 +51,14 @@ export default function Admin() {
     if (!text.trim()) return
     await updateDoc(doc(db, 'grievances', id), { updates: arrayUnion({ text: text.trim(), at: serverTimestamp() }) })
   }
+  
+  function handleLogin() {
+    if (input === ADMIN_CODE) {
+      // --- MODIFICATION: Save login status to localStorage ---
+      localStorage.setItem(ADMIN_KEY, 'true')
+      setOk(true)
+    }
+  }
 
   if (!ok) {
     return (
@@ -55,8 +66,15 @@ export default function Admin() {
         <div className="bg-white rounded-2xl shadow p-6">
           <h1 className="text-2xl font-bold mb-2">🛠️ Admin Login</h1>
           <p className="text-sm text-gray-600 mb-4">Enter your passcode (set in <code>Admin.jsx</code>).</p>
-          <input type="password" value={input} onChange={e=>setInput(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Passcode" />
-          <button onClick={()=> setOk(input===ADMIN_CODE)} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
+          <input 
+            type="password" 
+            value={input} 
+            onChange={e=>setInput(e.target.value)} 
+            className="border rounded-xl px-3 py-2 w-full" 
+            placeholder="Passcode"
+            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          />
+          <button onClick={handleLogin} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
         </div>
       </div>
     )
@@ -93,7 +111,6 @@ export default function Admin() {
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.severity==='High'?'bg-red-100 text-red-700 border-red-200': g.severity==='Medium'?'bg-yellow-100 text-yellow-700 border-yellow-200':'bg-green-100 text-green-700 border-green-200'}`}>{g.severity||'Medium'}</span>
                   <span className="px-2 py-0.5 rounded-full text-sm border bg-indigo-100 text-indigo-700 border-indigo-200">{g.category||'Other'}</span>
-                  {/* THIS IS THE CORRECTED LINE */}
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   <span className="px-2 py-0.5 rounded-full text-sm border bg-gray-100 text-gray-700 border-gray-200">client: {g.clientId||'-'}</span>
                 </div>
