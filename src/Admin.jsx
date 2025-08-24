@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
 
-const ADMIN_CODE = 'love-2025';
-const ADMIN_KEY = 'gp_admin_ok';
+// This component is now a fully authenticated admin panel.
 
 export default function Admin() {
   usePageMeta({
@@ -15,23 +15,48 @@ export default function Admin() {
     themeColor: '#475569'
   });
 
-  const [ok, setOk] = useState(localStorage.getItem(ADMIN_KEY) === 'true');
-  const [input, setInput] = useState('');
+  // State for Firebase Authentication
+  const [adminUser, setAdminUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginError, setLoginError] = useState('');
+
+  // State for the login form
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // State for the dashboard data
   const [items, setItems] = useState([]);
   const [fs, setFs] = useState('');
   const [fv, setFv] = useState('');
   const [term, setTerm] = useState('');
 
+  // Effect to handle the admin's authentication state
   useEffect(() => {
-    if (!ok) return;
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setAdminUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Effect to fetch data only when the admin is logged in
+  useEffect(() => {
+    if (!adminUser) {
+      setItems([]); // Clear data if admin logs out
+      return;
+    };
     const q = query(collection(db, 'grievances'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       const list = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
       setItems(list);
+    }, (error) => {
+      console.error("Firestore subscription error:", error);
+      // Handle read error, maybe show a message to the admin
     });
     return () => unsub();
-  }, [ok]);
+  }, [adminUser]);
 
   const filtered = useMemo(() => items.filter((g) => {
     const t = `${g.title||''} ${g.details||''}`.toLowerCase();
@@ -48,21 +73,14 @@ export default function Admin() {
   }), [filtered]);
 
   async function setStatus(id, status) {
-    try {
-      await updateDoc(doc(db, 'grievances', id), { status });
-    } catch (error) {
-      console.error("Error updating status:", error);
-      // In a real app, show an error toast/modal
-    }
+    await updateDoc(doc(db, 'grievances', id), { status });
   }
 
   async function addNote(id, text) {
     const noteInput = document.getElementById(`note-${id}`);
     const postButton = document.getElementById(`post-btn-${id}`);
-    
     if (!text.trim() || !postButton) return;
 
-    const originalButtonText = postButton.innerText;
     postButton.innerText = 'Posting...';
     postButton.disabled = true;
 
@@ -70,58 +88,73 @@ export default function Admin() {
       await updateDoc(doc(db, 'grievances', id), { 
           updates: arrayUnion({ text: text.trim(), at: serverTimestamp() }) 
       });
-      if (noteInput) noteInput.value = ''; // Clear input on success
+      if (noteInput) noteInput.value = '';
       postButton.innerText = 'Posted!';
-      setTimeout(() => {
-        postButton.innerText = originalButtonText;
-        postButton.disabled = false;
-      }, 2000);
     } catch (error) {
       console.error("Error adding note: ", error);
       postButton.innerText = 'Error!';
-      // In a real app, show a more user-friendly error message
+    } finally {
       setTimeout(() => {
-        postButton.innerText = originalButtonText;
+        postButton.innerText = 'Post Update';
         postButton.disabled = false;
-      }, 3000);
+      }, 2000);
     }
   }
   
   async function deleteGrievance(id) {
-    // In a real app, you'd use a custom modal here instead of window.confirm
     if (confirm('Are you sure you want to delete this grievance?')) {
         await deleteDoc(doc(db, 'grievances', id));
     }
   }
 
-  function handleLogin() {
-    if (input === ADMIN_CODE) {
-      localStorage.setItem(ADMIN_KEY, 'true');
-      setOk(true);
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoginError('');
+    const auth = getAuth();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error("Admin login failed:", error.message);
+      setLoginError('Login failed. Please check your email and password.');
     }
   }
 
-  function handleLogout() {
-    localStorage.removeItem(ADMIN_KEY);
-    setOk(false);
+  async function handleLogout() {
+    const auth = getAuth();
+    await signOut(auth);
   }
 
-  if (!ok) {
+  if (authLoading) {
+    return <div className="text-center p-10">Loading Admin Panel...</div>;
+  }
+
+  if (!adminUser) {
     return (
       <div className="max-w-xl mx-auto p-6">
-        <div className="bg-white rounded-2xl shadow p-6">
+        <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow p-6">
           <h1 className="text-2xl font-bold mb-2">🛠️ Admin Login</h1>
-          <p className="text-sm text-gray-600 mb-4">Enter your passcode.</p>
-          <input 
-            type="password" 
-            value={input} 
-            onChange={e=>setInput(e.target.value)} 
-            className="border rounded-xl px-3 py-2 w-full" 
-            placeholder="Passcode"
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-          />
-          <button onClick={() => handleLogin()} className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white">Enter</button>
-        </div>
+          <p className="text-sm text-gray-600 mb-4">Please sign in with your admin account.</p>
+          <div className="space-y-3">
+            <input 
+              type="email" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="border rounded-xl px-3 py-2 w-full" 
+              placeholder="Email"
+              required
+            />
+            <input 
+              type="password" 
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="border rounded-xl px-3 py-2 w-full" 
+              placeholder="Password"
+              required
+            />
+          </div>
+          {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+          <button type="submit" className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white w-full">Sign In</button>
+        </form>
       </div>
     );
   }
