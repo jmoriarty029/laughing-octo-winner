@@ -49,7 +49,6 @@ exports.sendNewGrievanceNotification = functions.firestore
 
     // --- IMPORTANT: Replace this with your actual Admin User ID ---
     const adminUid = "OujCHPP7wSUJOa5iQLNMbu06tAb2"; 
-    // In a real app, you might get this from a config file or another Firestore document.
 
     const db = admin.firestore();
     const tokensSnapshot = await db.collection("fcmTokens")
@@ -65,7 +64,7 @@ exports.sendNewGrievanceNotification = functions.firestore
       notification: {
         title: "New Grievance Filed!",
         body: newGrievance.title,
-        click_action: "/admin", // Link to the admin panel
+        click_action: "/admin",
         icon: "/icons/icon-192.png",
       },
     };
