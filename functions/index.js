@@ -16,73 +16,61 @@ exports.emailUserOnUpdate = functions.firestore
     // Trigger only when a new update is added
     if (afterUpdates.length > beforeUpdates.length) {
       const newUpdate = afterUpdates[afterUpdates.length - 1];
-      const userId = afterData.uid;
+      
+      // --- CHANGE: Hardcoded user email address ---
+      // The notification for any grievance update will now go to this specific email.
+      const userEmail = "ayeshaayub2601@gmail.com";
 
-      if (!userId) return null;
-
-      // Get the user's email address from Firebase Authentication
-      const user = await admin.auth().getUser(userId);
-      const userEmail = user.email;
-
-      if (!userEmail) {
-        console.log("User has no email address:", userId);
-        return null;
+      try {
+        const mailRef = admin.firestore().collection("mail");
+        await mailRef.add({
+          to: userEmail,
+          message: {
+            subject: `An update on your grievance: "${afterData.title}"`,
+            html: `
+              <p>Hello,</p>
+              <p>A new update has been posted for your grievance titled "<strong>${afterData.title}</strong>".</p>
+              <p><strong>Update:</strong> "${newUpdate.text}"</p>
+              <p>You can view the full details by logging into the portal.</p>
+            `,
+          },
+        });
+        console.log("Successfully created update email for:", userEmail);
+      } catch (error) {
+        console.error("Failed to create update email:", error);
       }
-
-      // Create an email document in the 'mail' collection
-      const mailRef = admin.firestore().collection("mail");
-      await mailRef.add({
-        to: userEmail,
-        // --- NEW: Specify the 'from' address ---
-        from: "YOUR_GMAIL_ADDRESS", // Replace with your actual Gmail address
-        message: {
-          subject: `An update on your grievance: "${afterData.title}"`,
-          html: `
-            <p>Hello,</p>
-            <p>A new update has been posted for your grievance titled "<strong>${afterData.title}</strong>".</p>
-            <p><strong>Update:</strong> "${newUpdate.text}"</p>
-            <p>You can view the full details by logging into the portal.</p>
-          `,
-        },
-      });
     }
     return null;
   });
 
-// --- FUNCTION 2: Email the ADMIN when a user files a new grievance ---
+// --- FUNCTION 2: Email ADMIN when a user files a new grievance ---
 exports.emailAdminOnCreate = functions.firestore
   .document("grievances/{grievanceId}")
   .onCreate(async (snap) => {
     const newGrievance = snap.data();
+    
+    // --- CHANGE: Hardcoded admin email address ---
+    const adminEmail = "larasib345@gmail.com";
 
-    // --- IMPORTANT: Replace this with your actual Admin User ID ---
-    const adminUid = "OujCHPP7wSUJOa5iQLNMbu06tAb2";
-
-    // Get the admin's email address
-    const adminUser = await admin.auth().getUser(adminUid);
-    const adminEmail = adminUser.email;
-
-    if (!adminEmail) {
-      console.log("Admin user has no email address:", adminUid);
-      return null;
+    try {
+      // Create an email document in the 'mail' collection for the admin
+      const mailRef = admin.firestore().collection("mail");
+      await mailRef.add({
+        to: adminEmail,
+        message: {
+          subject: "A new grievance has been filed!",
+          html: `
+            <p>A new grievance has been submitted.</p>
+            <p><strong>Title:</strong> ${newGrievance.title}</p>
+            <p><strong>Category:</strong> ${newGrievance.category}</p>
+            <p><strong>Severity:</strong> ${newGrievance.severity}</p>
+            <p>Please log in to the admin dashboard to review it.</p>
+          `,
+        },
+      });
+      console.log("Successfully created new grievance email for admin:", adminEmail);
+    } catch (error) {
+      console.error("Failed to create new grievance email for admin:", error);
     }
-
-    // Create an email document in the 'mail' collection
-    const mailRef = admin.firestore().collection("mail");
-    await mailRef.add({
-      to: adminEmail,
-      // --- NEW: Specify the 'from' address ---
-      from: "larasib345@gmail.com", // Replace with your actual Gmail address
-      message: {
-        subject: "A new grievance has been filed!",
-        html: `
-          <p>A new grievance has been submitted.</p>
-          <p><strong>Title:</strong> ${newGrievance.title}</p>
-          <p><strong>Category:</strong> ${newGrievance.category}</p>
-          <p><strong>Severity:</strong> ${newGrievance.severity}</p>
-          <p>Please log in to the admin dashboard to review it.</p>
-        `,
-      },
-    });
     return null;
   });
