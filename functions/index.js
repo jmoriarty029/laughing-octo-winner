@@ -56,7 +56,7 @@ exports.emailAdminOnCreate = functions.firestore
     const newGrievance = snap.data();
 
     // --- IMPORTANT: Replace this with your actual Admin User ID ---
-    const adminUid = "YOUR_ADMIN_UID_HERE";
+    const adminUid = "OujCHPP7wSUJOa5iQLNMbu06tAb2";
 
     // Get the admin's email address
     const adminUser = await admin.auth().getUser(adminUid);
@@ -72,7 +72,7 @@ exports.emailAdminOnCreate = functions.firestore
     await mailRef.add({
       to: adminEmail,
       // --- NEW: Specify the 'from' address ---
-      from: "YOUR_GMAIL_ADDRESS", // Replace with your actual Gmail address
+      from: "larasib345@gmail.com", // Replace with your actual Gmail address
       message: {
         subject: "A new grievance has been filed!",
         html: `
