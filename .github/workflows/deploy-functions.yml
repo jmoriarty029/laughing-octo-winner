@@ -13,6 +13,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # --- NEW STEP: Install Dependencies ---
+      # This command navigates into your functions directory and runs npm install
+      # to download the required packages (like firebase-functions and firebase-admin).
+      - name: Install Dependencies
+        run: npm --prefix functions install
+
       # This step authenticates using the service account key
       - name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v1'
