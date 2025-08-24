@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import InstallPrompt from './InstallPrompt';
-import NotificationButton from './NotificationButton'; // 1. Import the new component
 import { db } from './firebase';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import {
   addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore';
@@ -25,6 +24,8 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
 
   // State for the login form
   const [email, setEmail] = useState('');
@@ -135,6 +136,20 @@ export default function App() {
     await signOut(auth);
   }
 
+  async function handlePasswordReset(e) {
+    e.preventDefault();
+    setLoginError('');
+    setResetMessage('');
+    const auth = getAuth();
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetMessage(`Password reset link sent to ${email}.`);
+    } catch (error) {
+      console.error("Password reset failed:", error.message);
+      setLoginError("Could not send reset email. Please check the address.");
+    }
+  }
+
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
   }
@@ -142,30 +157,29 @@ export default function App() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <form onSubmit={handleLogin} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
-          <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Grievance Portal</h1>
-          <p className="text-sm text-gray-600 mb-4">Please sign in to continue.</p>
-          <div className="space-y-3">
-            <input 
-              type="email" 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Email"
-              required
-            />
-            <input 
-              type="password" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Password"
-              required
-            />
-          </div>
-          {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
-          <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Sign In</button>
-        </form>
+        {showPasswordReset ? (
+          <form onSubmit={handlePasswordReset} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+            <h1 className="text-2xl font-bold mb-2 text-pink-600">Reset Password</h1>
+            <p className="text-sm text-gray-600 mb-4">Enter your email to receive a reset link.</p>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Email" required />
+            {resetMessage && <p className="text-green-600 text-sm mt-3">{resetMessage}</p>}
+            {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+            <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Send Reset Link</button>
+            <button type="button" onClick={() => { setShowPasswordReset(false); setLoginError(''); setResetMessage(''); }} className="mt-2 w-full text-sm text-center text-gray-600 hover:text-pink-600">Back to Login</button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+            <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Grievance Portal</h1>
+            <p className="text-sm text-gray-600 mb-4">Please sign in to continue.</p>
+            <div className="space-y-3">
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Email" required />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Password" required />
+            </div>
+            {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+            <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Sign In</button>
+            <button type="button" onClick={() => { setShowPasswordReset(true); setLoginError(''); }} className="mt-2 w-full text-sm text-center text-gray-600 hover:text-pink-600">Forgot Password?</button>
+          </form>
+        )}
       </div>
     );
   }
@@ -180,9 +194,6 @@ export default function App() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {/* 2. Render the new component */}
-        <NotificationButton user={user} />
-
         <section className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">My Grievances</p><p className="text-2xl font-bold">{stats.total}</p></div>
           <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Resolved</p><p className="text-2xl font-bold">{stats.resolved}</p></div>
@@ -223,7 +234,7 @@ export default function App() {
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                 </div>
                 
-                {Array.isArray(g.updates) && g.updates.length > <strong>0</strong> && (
+                {Array.isArray(g.updates) && g.updates.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <h4 className="text-sm font-semibold text-slate-600 mb-2">Updates from Admin</h4>
                     <ul className="space-y-2">
