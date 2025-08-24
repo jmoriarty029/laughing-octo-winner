@@ -5,7 +5,6 @@ import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, getDoc, deleteDoc
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
-import NotificationButton from './NotificationButton'; // 1. Import the notification button
 
 export default function Admin() {
   usePageMeta({
@@ -33,6 +32,8 @@ export default function Admin() {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // This logic ensures that only a non-anonymous user is treated as a potential admin.
+      // It prevents the user's anonymous session from interfering with the admin panel.
       if (user && !user.isAnonymous) {
         setAdminUser(user);
       } else {
@@ -43,12 +44,13 @@ export default function Admin() {
     return () => unsubscribe();
   }, []);
 
-  // Effect to fetch data only when the admin is logged in
+  // Effect to fetch data only when the admin is properly logged in
   useEffect(() => {
     if (!adminUser) {
       setItems([]); // Clear data if admin logs out
       return;
     };
+    // This query correctly fetches ALL grievances, without any filtering.
     const q = query(collection(db, 'grievances'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       const list = [];
@@ -159,16 +161,13 @@ export default function Admin() {
           <h1 className="text-2xl font-extrabold text-slate-800">🛠️ Admin Dashboard</h1>
           <button onClick={handleLogout} className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold">Logout</button>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm-flex-row gap-2 w-full sm:w-auto">
           <select value={fs} onChange={e=>setFs(e.target.value)} className="border rounded-xl px-3 py-2"><option value="">All Statuses</option><option>Filed</option><option>Working</option><option>Resolved</option></select>
           <select value={fv} onChange={e=>setFv(e.target.value)} className="border rounded-xl px-3 py-2"><option value="">All Severities</option><option>Low</option><option>Medium</option><option>High</option></select>
           <input value={term} onChange={e=>setTerm(e.target.value)} className="border rounded-xl px-3 py-2" placeholder="Search…" />
         </div>
       </header>
       
-      {/* 2. Render the notification button */}
-      <NotificationButton user={adminUser} />
-
       <section className="grid grid-cols-3 gap-3 my-6">
         <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Total</p><p className="text-2xl font-bold">{summary.total}</p></div>
         <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Working</p><p className="text-2xl font-bold">{summary.working}</p></div>
