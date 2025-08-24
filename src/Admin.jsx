@@ -5,7 +5,7 @@ import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, getDoc, deleteDoc
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
-import NotificationButton from './NotificationButton'; // 1. Import the notification button
+import NotificationButton from './NotificationButton';
 
 export default function Admin() {
   usePageMeta({
@@ -166,7 +166,6 @@ export default function Admin() {
         </div>
       </header>
       
-      {/* 2. Render the notification button */}
       <NotificationButton user={adminUser} />
 
       <section className="grid grid-cols-3 gap-3 my-6">
@@ -189,7 +188,6 @@ export default function Admin() {
                 </div>
                 <div className="text-xs text-gray-400 mt-2 border-t pt-2">
                   <p>Filed: {g.createdAt?.toDate?.().toLocaleString() || 'N/A'}</p>
-                  <p>User ID: <code className="text-gray-500">{g.uid || g.clientId || 'N/A'}</code></p>
                 </div>
 
                 {Array.isArray(g.updates) && g.updates.length > 0 && (
