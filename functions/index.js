@@ -17,14 +17,13 @@ exports.emailUserOnUpdate = functions.firestore
     if (afterUpdates.length > beforeUpdates.length) {
       const newUpdate = afterUpdates[afterUpdates.length - 1];
       
-      // --- CHANGE: Hardcoded user email address ---
-      // The notification for any grievance update will now go to this specific email.
       const userEmail = "ayeshaayub2601@gmail.com";
 
       try {
         const mailRef = admin.firestore().collection("mail");
         await mailRef.add({
           to: userEmail,
+          from: "larasib345@gmail.com", // Explicitly set the 'from' address
           message: {
             subject: `An update on your grievance: "${afterData.title}"`,
             html: `
@@ -49,7 +48,6 @@ exports.emailAdminOnCreate = functions.firestore
   .onCreate(async (snap) => {
     const newGrievance = snap.data();
     
-    // --- CHANGE: Hardcoded admin email address ---
     const adminEmail = "larasib345@gmail.com";
 
     try {
@@ -57,6 +55,7 @@ exports.emailAdminOnCreate = functions.firestore
       const mailRef = admin.firestore().collection("mail");
       await mailRef.add({
         to: adminEmail,
+        from: "larasib345@gmail.com", // Explicitly set the 'from' address
         message: {
           subject: "A new grievance has been filed!",
           html: `
