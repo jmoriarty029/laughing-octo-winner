@@ -21,7 +21,7 @@ export default function NotificationButton({ user }) {
     try {
       const messaging = getMessaging();
       // IMPORTANT: Replace this with your VAPID key from the Firebase Console
-      const fcmToken = await getToken(messaging, { vapidKey: 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE' });
+      const fcmToken = await getToken(messaging, { vapidKey: 'BIHmz65tUVlXiBrt-UCof6oMjdLZRmlveSRDa5IGC1_y1P8QYZAJMTAaV3RVJZmXaS5WcX4Qrvk' });
 
       if (fcmToken) {
         const tokenRef = doc(db, `fcmTokens/${fcmToken}`);
