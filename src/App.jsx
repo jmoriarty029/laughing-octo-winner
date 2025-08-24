@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import InstallPrompt from './InstallPrompt';
+import NotificationButton from './NotificationButton'; // 1. Import the new component
 import { db } from './firebase';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
@@ -179,6 +180,9 @@ export default function App() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
+        {/* 2. Render the new component */}
+        <NotificationButton user={user} />
+
         <section className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">My Grievances</p><p className="text-2xl font-bold">{stats.total}</p></div>
           <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Resolved</p><p className="text-2xl font-bold">{stats.resolved}</p></div>
@@ -219,7 +223,7 @@ export default function App() {
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                 </div>
                 
-                {Array.isArray(g.updates) && g.updates.length > 0 && (
+                {Array.isArray(g.updates) && g.updates.length > <strong>0</strong> && (
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <h4 className="text-sm font-semibold text-slate-600 mb-2">Updates from Admin</h4>
                     <ul className="space-y-2">
