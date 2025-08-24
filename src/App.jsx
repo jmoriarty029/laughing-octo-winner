@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import InstallPrompt from './InstallPrompt';
 import { db } from './firebase';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+// --- 1. IMPORT NEW FIREBASE FUNCTIONS ---
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import {
   addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
 
-// Keys for saving form drafts to prevent data loss on refresh
+// Keys for saving form drafts
 const DRAFT_TITLE_KEY = 'gp_draft_title';
 const DRAFT_DETAILS_KEY = 'gp_draft_details';
 const DRAFT_CATEGORY_KEY = 'gp_draft_category';
@@ -20,38 +22,38 @@ export default function App() {
     themeColor: '#ec4899'
   });
 
-  // State for Firebase Authentication
+  // --- 2. NEW STATE FOR UI AND FEATURES ---
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [showPasswordReset, setShowPasswordReset] = useState(false); // Toggle for password reset view
+  const [resetMessage, setResetMessage] = useState(''); // Feedback for password reset
 
-  // State for the login form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // State for app data
   const [grievances, setGrievances] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // State for the new grievance form, synced with localStorage
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '');
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '');
   const [category, setCategory] = useState(localStorage.getItem(DRAFT_CATEGORY_KEY) || 'Attention');
   const [severity, setSeverity] = useState(localStorage.getItem(DRAFT_SEVERITY_KEY) || 'Medium');
 
-  // Save draft to localStorage whenever form fields change
+  // State for file attachments
+  const [file, setFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [filePreview, setFilePreview] = useState('');
+
   useEffect(() => { localStorage.setItem(DRAFT_TITLE_KEY, title) }, [title]);
   useEffect(() => { localStorage.setItem(DRAFT_DETAILS_KEY, details) }, [details]);
   useEffect(() => { localStorage.setItem(DRAFT_CATEGORY_KEY, category) }, [category]);
   useEffect(() => { localStorage.setItem(DRAFT_SEVERITY_KEY, severity) }, [severity]);
 
-  // Effect to handle the user's authentication state
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      // We only set the user if they are not an admin (based on email)
-      // and not anonymous. This prevents the admin from seeing the user portal.
       if (currentUser && !currentUser.isAnonymous) {
          setUser(currentUser);
       } else {
@@ -62,21 +64,14 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Effect to fetch grievances from Firestore when the user is logged in
   useEffect(() => {
     if (!user) {
         setGrievances([]);
         return;
     };
-
     setIsLoading(true);
     setError(null);
-    
-    const q = query(
-      collection(db, 'grievances'),
-      where('uid', '==', user.uid)
-    );
-
+    const q = query(collection(db, 'grievances'), where('uid', '==', user.uid));
     const unsub = onSnapshot(q, (snap) => {
       const list = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
@@ -88,7 +83,6 @@ export default function App() {
         setError("Could not load grievances.");
         setIsLoading(false);
     });
-
     return () => unsub();
   }, [user]);
 
@@ -97,9 +91,35 @@ export default function App() {
     resolved: grievances.filter((g) => g.status === 'Resolved').length,
   }), [grievances]);
 
+  // --- 3. UPDATED SUBMIT FUNCTION WITH FILE UPLOAD LOGIC ---
   async function submit() {
     if (!title.trim() || !user) return;
-    
+
+    let fileURL = '';
+    if (file) {
+      const storage = getStorage();
+      const storageRef = ref(storage, `attachments/${user.uid}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      await new Promise((resolve, reject) => {
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+          },
+          (error) => {
+            console.error("Upload failed:", error);
+            setError("File upload failed. Please try again.");
+            reject(error);
+          },
+          async () => {
+            fileURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve();
+          }
+        );
+      });
+    }
+
     await addDoc(collection(db, 'grievances'), {
       title: title.trim(),
       details: details.trim(),
@@ -109,9 +129,12 @@ export default function App() {
       uid: user.uid,
       createdAt: serverTimestamp(),
       updates: [],
+      attachmentURL: fileURL, // Save the file URL
     });
 
+    // Reset form and state
     setTitle(''); setDetails(''); setCategory('Attention'); setSeverity('Medium');
+    setFile(null); setFilePreview(''); setUploadProgress(0);
     localStorage.removeItem(DRAFT_TITLE_KEY);
     localStorage.removeItem(DRAFT_DETAILS_KEY);
     localStorage.removeItem(DRAFT_CATEGORY_KEY);
@@ -136,37 +159,60 @@ export default function App() {
     await signOut(auth);
   }
 
+  // --- 4. NEW FUNCTION FOR PASSWORD RESET ---
+  async function handlePasswordReset(e) {
+    e.preventDefault();
+    setLoginError('');
+    setResetMessage('');
+    const auth = getAuth();
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetMessage(`Password reset link sent to ${email}. Please check your inbox.`);
+    } catch (error) {
+      console.error("Password reset failed:", error.message);
+      setLoginError("Could not send reset email. Please check the address and try again.");
+    }
+  }
+
+  function handleFileChange(e) {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setFilePreview(URL.createObjectURL(selectedFile));
+    }
+  }
+
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
   }
 
+  // --- 5. UPDATED LOGIN/RESET UI ---
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <form onSubmit={handleLogin} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
-          <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Grievance Portal</h1>
-          <p className="text-sm text-gray-600 mb-4">Please sign in to continue.</p>
-          <div className="space-y-3">
-            <input 
-              type="email" 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Email"
-              required
-            />
-            <input 
-              type="password" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Password"
-              required
-            />
-          </div>
-          {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
-          <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Sign In</button>
-        </form>
+        {showPasswordReset ? (
+          <form onSubmit={handlePasswordReset} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+            <h1 className="text-2xl font-bold mb-2 text-pink-600">Reset Password</h1>
+            <p className="text-sm text-gray-600 mb-4">Enter your email to receive a reset link.</p>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Email" required />
+            {resetMessage && <p className="text-green-600 text-sm mt-3">{resetMessage}</p>}
+            {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+            <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Send Reset Link</button>
+            <button type="button" onClick={() => { setShowPasswordReset(false); setLoginError(''); setResetMessage(''); }} className="mt-2 w-full text-sm text-center text-gray-600 hover:text-pink-600">Back to Login</button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+            <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Grievance Portal</h1>
+            <p className="text-sm text-gray-600 mb-4">Please sign in to continue.</p>
+            <div className="space-y-3">
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Email" required />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Password" required />
+            </div>
+            {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+            <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Sign In</button>
+            <button type="button" onClick={() => { setShowPasswordReset(true); setLoginError(''); }} className="mt-2 w-full text-sm text-center text-gray-600 hover:text-pink-600">Forgot Password?</button>
+          </form>
+        )}
       </div>
     );
   }
@@ -186,6 +232,7 @@ export default function App() {
           <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Resolved</p><p className="text-2xl font-bold">{stats.resolved}</p></div>
         </section>
 
+        {/* --- 6. UPDATED FORM WITH FILE INPUT --- */}
         <section className="bg-white rounded-2xl shadow p-6 mb-6">
           <h2 className="text-lg font-semibold mb-3 text-pink-700">File a New Grievance</h2>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -195,13 +242,19 @@ export default function App() {
             </select>
           </div>
           <textarea value={details} onChange={(e)=>setDetails(e.target.value)} className="border rounded-xl px-3 py-2 w-full mt-3" rows="3" placeholder="Details (optional)" />
+          <div className="mt-3">
+            <label className="text-sm text-gray-600">Attach Image (optional)</label>
+            <input type="file" onChange={handleFileChange} accept="image/*" className="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"/>
+            {filePreview && <img src={filePreview} alt="Preview" className="mt-2 rounded-lg max-h-40" />}
+            {uploadProgress > 0 && uploadProgress < 100 && <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2"><div className="bg-pink-600 h-2.5 rounded-full" style={{width: `${uploadProgress}%`}}></div></div>}
+          </div>
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <span className="text-sm text-gray-600">Severity:</span>
             {['Low','Medium','High'].map((s)=> (
               <button key={s} onClick={()=>setSeverity(s)} className={`px-3 py-1 rounded-full text-sm border ${severity===s? 'bg-gray-100':''} ${s==='Low'?'border-green-300 text-green-700': s==='Medium'?'border-yellow-300 text-yellow-700':'border-red-300 text-red-700'}`}>{s}</button>
             ))}
           </div>
-          <button onClick={submit} className="mt-4 w-full sm:w-auto px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-semibold">Submit Grievance</button>
+          <button onClick={submit} disabled={uploadProgress > 0 && uploadProgress < 100} className="mt-4 w-full sm:w-auto px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-semibold disabled:bg-pink-300">Submit Grievance</button>
         </section>
 
         <section className="space-y-3">
@@ -214,6 +267,8 @@ export default function App() {
               <div>
                 <h3 className="text-lg font-semibold text-pink-700">{g.title}</h3>
                 {g.details && <p className="text-sm text-gray-700 mt-1">{g.details}</p>}
+                {/* --- 7. DISPLAY ATTACHED IMAGE --- */}
+                {g.attachmentURL && <a href={g.attachmentURL} target="_blank" rel="noopener noreferrer"><img src={g.attachmentURL} alt="Attachment" className="mt-2 rounded-lg max-h-60 border"/></a>}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.severity==='High'?'bg-red-100 text-red-700 border-red-200': g.severity==='Medium'?'bg-yellow-100 text-yellow-700 border-yellow-200':'bg-green-100 text-green-700 border-green-200'}`}>{g.severity}</span>
                   <span className="px-2 py-0.5 rounded-full text-sm border bg-indigo-100 text-indigo-700 border-indigo-200">{g.category||'Other'}</span>
