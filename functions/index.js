@@ -1,5 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { setGlobalOptions } = require("firebase-functions/v2");
+
+// Set the region for all functions in this file to match your database
+setGlobalOptions({ region: "europe-west1" });
 
 admin.initializeApp();
 
@@ -17,6 +21,7 @@ exports.emailUserOnUpdate = functions.firestore
     if (afterUpdates.length > beforeUpdates.length) {
       const newUpdate = afterUpdates[afterUpdates.length - 1];
       
+      // Hardcoded user email address
       const userEmail = "ayeshaayub2601@gmail.com";
 
       try {
@@ -48,6 +53,7 @@ exports.emailAdminOnCreate = functions.firestore
   .onCreate(async (snap) => {
     const newGrievance = snap.data();
     
+    // Hardcoded admin email address
     const adminEmail = "larasib345@gmail.com";
 
     try {
