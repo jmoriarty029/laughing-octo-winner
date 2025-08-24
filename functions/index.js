@@ -1,14 +1,11 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const { setGlobalOptions } = require("firebase-functions/v2");
-
-// Set the region for all functions in this file to match your database
-setGlobalOptions({ region: "europe-west1" });
 
 admin.initializeApp();
 
 // --- FUNCTION 1: Email the USER when an admin posts an update ---
-exports.emailUserOnUpdate = functions.firestore
+// This function now correctly specifies the region using v1 syntax
+exports.emailUserOnUpdate = functions.region("europe-west1").firestore
   .document("grievances/{grievanceId}")
   .onUpdate(async (change) => {
     const beforeData = change.before.data();
@@ -48,7 +45,8 @@ exports.emailUserOnUpdate = functions.firestore
   });
 
 // --- FUNCTION 2: Email ADMIN when a user files a new grievance ---
-exports.emailAdminOnCreate = functions.firestore
+// This function now correctly specifies the region using v1 syntax
+exports.emailAdminOnCreate = functions.region("europe-west1").firestore
   .document("grievances/{grievanceId}")
   .onCreate(async (snap) => {
     const newGrievance = snap.data();
