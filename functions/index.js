@@ -48,7 +48,7 @@ exports.sendNewGrievanceNotification = functions.firestore
     const newGrievance = snap.data();
 
     // --- IMPORTANT: Replace this with your actual Admin User ID ---
-    const adminUid = "YOUR_ADMIN_UID_HERE"; 
+    const adminUid = "OujCHPP7wSUJOa5iQLNMbu06tAb2"; 
     // In a real app, you might get this from a config file or another Firestore document.
 
     const db = admin.firestore();
