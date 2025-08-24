@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import InstallPrompt from './InstallPrompt';
-import NotificationButton from './NotificationButton'; // 1. Import the new component
+import NotificationButton from './NotificationButton';
 import { db } from './firebase';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'firebase/auth';
 import {
@@ -195,7 +195,6 @@ export default function App() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6">
-        {/* 2. Render the new component */}
         <NotificationButton user={user} />
 
         <section className="grid grid-cols-2 gap-3 mb-6">
