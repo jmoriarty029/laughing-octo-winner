@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import InstallPrompt from './InstallPrompt';
-// --- 1. IMPORT FIREBASE AUTH FUNCTIONS ---
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db } from './firebase';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
   addDoc, collection, onSnapshot, query, serverTimestamp, where
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
-
-// --- 2. REMOVED OLD LOCALSTORAGE LOGIN SYSTEM ---
-// The entire passcode and clientId system is replaced by Firebase Auth.
 
 // Keys for saving form drafts to prevent data loss on refresh
 const DRAFT_TITLE_KEY = 'gp_draft_title';
@@ -24,56 +20,58 @@ export default function App() {
     themeColor: '#ec4899'
   });
 
-  // --- 3. NEW STATE FOR AUTHENTICATION ---
-  const [user, setUser] = useState(null); // Will store the authenticated user object
-  const [authLoading, setAuthLoading] = useState(true); // Tracks initial auth check
+  // State for Firebase Authentication
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginError, setLoginError] = useState('');
 
+  // State for the login form
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // State for app data
   const [grievances, setGrievances] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // State for the new grievance form, synced with localStorage
   const [title, setTitle] = useState(localStorage.getItem(DRAFT_TITLE_KEY) || '');
   const [details, setDetails] = useState(localStorage.getItem(DRAFT_DETAILS_KEY) || '');
   const [category, setCategory] = useState(localStorage.getItem(DRAFT_CATEGORY_KEY) || 'Attention');
   const [severity, setSeverity] = useState(localStorage.getItem(DRAFT_SEVERITY_KEY) || 'Medium');
 
+  // Save draft to localStorage whenever form fields change
   useEffect(() => { localStorage.setItem(DRAFT_TITLE_KEY, title) }, [title]);
   useEffect(() => { localStorage.setItem(DRAFT_DETAILS_KEY, details) }, [details]);
   useEffect(() => { localStorage.setItem(DRAFT_CATEGORY_KEY, category) }, [category]);
   useEffect(() => { localStorage.setItem(DRAFT_SEVERITY_KEY, severity) }, [severity]);
 
-  // --- 4. DEFINITIVE AUTHENTICATION EFFECT ---
-  // This runs once on app load to handle user sign-in state.
+  // Effect to handle the user's authentication state
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        // User is signed in.
-        setUser(currentUser);
+      // We only set the user if they are not an admin (based on email)
+      // and not anonymous. This prevents the admin from seeing the user portal.
+      if (currentUser && !currentUser.isAnonymous) {
+         setUser(currentUser);
       } else {
-        // User is not signed in, so we sign them in anonymously.
-        signInAnonymously(auth).catch((error) => {
-          console.error("Anonymous sign-in failed:", error);
-          setError("Authentication failed. Please try again later.");
-        });
+        setUser(null);
       }
-      setAuthLoading(false); // Auth check is complete
+      setAuthLoading(false);
     });
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-
-  // --- 5. DATA FETCHING EFFECT, NOW DEPENDS ON USER ---
-  // This effect runs only after we have a confirmed user.
+  // Effect to fetch grievances from Firestore when the user is logged in
   useEffect(() => {
-    // Don't run if we don't have a user yet.
-    if (!user) return;
+    if (!user) {
+        setGrievances([]);
+        return;
+    };
 
     setIsLoading(true);
     setError(null);
-
-    // Query grievances where the 'uid' matches the authenticated user's ID.
+    
     const q = query(
       collection(db, 'grievances'),
       where('uid', '==', user.uid)
@@ -86,13 +84,13 @@ export default function App() {
       setGrievances(list);
       setIsLoading(false);
     }, (err) => {
-      console.error("Firestore query failed:", err);
-      setError("Could not load grievances.");
-      setIsLoading(false);
+        console.error("Firestore query failed:", err);
+        setError("Could not load grievances.");
+        setIsLoading(false);
     });
 
     return () => unsub();
-  }, [user]); // Re-run if the user object changes.
+  }, [user]);
 
   const stats = useMemo(() => ({
     total: grievances.length,
@@ -108,7 +106,7 @@ export default function App() {
       category,
       severity,
       status: 'Filed',
-      uid: user.uid, // --- 6. SAVE WITH THE PERMANENT USER ID ---
+      uid: user.uid,
       createdAt: serverTimestamp(),
       updates: [],
     });
@@ -120,13 +118,55 @@ export default function App() {
     localStorage.removeItem(DRAFT_SEVERITY_KEY);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  
-  // --- 7. LOGIN SCREEN IS NOW A LOADING SCREEN ---
-  // We show this while the initial Firebase auth check is happening.
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoginError('');
+    const auth = getAuth();
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error("User login failed:", error.message);
+      setLoginError('Login failed. Please check your email and password.');
+    }
+  }
+
+  async function handleLogout() {
+    const auth = getAuth();
+    await signOut(auth);
+  }
+
   if (authLoading) {
+    return <div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>;
+  }
+
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">Connecting...</div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <form onSubmit={handleLogin} className="max-w-sm w-full bg-white rounded-2xl shadow-lg p-6">
+          <h1 className="text-2xl font-bold mb-2 text-pink-600">💌 Grievance Portal</h1>
+          <p className="text-sm text-gray-600 mb-4">Please sign in to continue.</p>
+          <div className="space-y-3">
+            <input 
+              type="email" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="border rounded-xl px-3 py-2 w-full" 
+              placeholder="Email"
+              required
+            />
+            <input 
+              type="password" 
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="border rounded-xl px-3 py-2 w-full" 
+              placeholder="Password"
+              required
+            />
+          </div>
+          {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
+          <button type="submit" className="mt-3 w-full px-4 py-2 rounded-xl bg-pink-600 text-white font-semibold">Sign In</button>
+        </form>
       </div>
     );
   }
@@ -136,7 +176,7 @@ export default function App() {
       <header className="sticky top-0 z-10 backdrop-blur bg-white/60 border-b border-white/40">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-pink-600">💌 Grievance Portal</h1>
-          {/* Logout is no longer needed for anonymous users */}
+          <button onClick={handleLogout} className="px-3 py-1.5 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold">Logout</button>
         </div>
       </header>
 
@@ -181,7 +221,6 @@ export default function App() {
                   <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                 </div>
                 
-                {/* --- 8. DEFINITIVE NOTES DISPLAY FIX --- */}
                 {Array.isArray(g.updates) && g.updates.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <h4 className="text-sm font-semibold text-slate-600 mb-2">Updates from Admin</h4>
