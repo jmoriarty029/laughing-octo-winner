@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { db } from './firebase';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import {
-  collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
+  collection, onSnapshot, orderBy, query, updateDoc, doc, getDoc, deleteDoc
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
 
@@ -76,6 +76,9 @@ export default function Admin() {
     await updateDoc(doc(db, 'grievances', id), { status });
   }
 
+  // --- DEFINITIVE FIX FOR ADDING NOTES ---
+  // This function now reads the document, modifies the updates array,
+  // and writes it back, avoiding the arrayUnion/serverTimestamp conflict.
   async function addNote(id, text) {
     const noteInput = document.getElementById(`note-${id}`);
     const postButton = document.getElementById(`post-btn-${id}`);
@@ -85,9 +88,27 @@ export default function Admin() {
     postButton.disabled = true;
 
     try {
-      await updateDoc(doc(db, 'grievances', id), { 
-          updates: arrayUnion({ text: text.trim(), at: serverTimestamp() }) 
+      const grievanceRef = doc(db, 'grievances', id);
+      const grievanceSnap = await getDoc(grievanceRef);
+
+      if (!grievanceSnap.exists()) {
+        throw new Error("Grievance document not found!");
+      }
+
+      const existingData = grievanceSnap.data();
+      const existingUpdates = existingData.updates || [];
+
+      const newUpdate = {
+        text: text.trim(),
+        at: new Date() // Using a client-side timestamp is the correct approach here.
+      };
+
+      const newUpdates = [...existingUpdates, newUpdate];
+
+      await updateDoc(grievanceRef, {
+        updates: newUpdates
       });
+
       if (noteInput) noteInput.value = '';
       postButton.innerText = 'Posted!';
     } catch (error) {
