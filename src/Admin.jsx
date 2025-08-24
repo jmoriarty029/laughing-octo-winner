@@ -34,7 +34,14 @@ export default function Admin() {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setAdminUser(user);
+      // --- DEFINITIVE AUTH FIX ---
+      // We now check if the user is anonymous. If they are, we treat them
+      // as logged out for the admin panel, forcing the login form to show.
+      if (user && !user.isAnonymous) {
+        setAdminUser(user);
+      } else {
+        setAdminUser(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -76,7 +83,6 @@ export default function Admin() {
     await updateDoc(doc(db, 'grievances', id), { status });
   }
 
-  // --- DEFINITIVE FIX FOR ADDING NOTES ---
   // This function now reads the document, modifies the updates array,
   // and writes it back, avoiding the arrayUnion/serverTimestamp conflict.
   async function addNote(id, text) {
