@@ -116,14 +116,11 @@ export default function App() {
     }
   }
 
-  // --- THIS IS THE FIX for the blank screen on logout ---
-  // This function now properly clears all user data from the app's memory,
-  // which prevents the crash when returning to the login screen.
   function handleLogout() {
     localStorage.removeItem(USER_KEY);
     setLoggedIn(false);
-    setGrievances([]); // Clear the grievances data
-    setError(null);     // Clear any errors
+    setGrievances([]);
+    setError(null);
   }
 
   if (!loggedIn) {
@@ -194,7 +191,7 @@ export default function App() {
           {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-xl">{error}</div>}
 
           {!isLoading && !error && grievances.length === 0 && (
-            <div className="text-center text-gray-500">No grievances yet 😇</div>
+            <div className="text-center text-gray-500">No grievances yet 🎉</div>
           )}
 
           {!isLoading && !error && grievances.map((g)=> (
@@ -210,30 +207,21 @@ export default function App() {
                     <span className={`px-2 py-0.5 rounded-full text-sm border ${g.status==='Resolved'?'bg-emerald-100 text-emerald-700 border-emerald-200': g.status==='Working'?'bg-amber-100 text-amber-700 border-amber-200':'bg-rose-100 text-rose-700 border-rose-200'}`}>{g.status}</span>
                   </div>
                   
-                  {/* --- THIS IS THE DEFINITIVE FIX for showing update notes --- */}
-                  {/* This block is rewritten to be completely safe and handle all data states. */}
+                  {/* --- NEW: Redesigned Admin Updates Section --- */}
                   {Array.isArray(g.updates) && g.updates.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-gray-200 text-sm">
-                      <h4 className="font-semibold text-slate-700 mb-2">Updates:</h4>
+                    <div className="mt-4 pt-3 border-t border-gray-200">
+                      <h4 className="text-sm font-semibold text-slate-600 mb-2">Updates from Admin</h4>
                       <ul className="space-y-2">
-                        {[...g.updates] // Create a safe copy of the array before sorting
-                          .sort((a, b) => {
-                            // Safely get timestamps, defaulting to 0 if they don't exist
-                            const timeA = a?.at?.seconds || 0;
-                            const timeB = b?.at?.seconds || 0;
-                            return timeB - timeA; // Sort newest first
-                          })
+                        {[...g.updates]
+                          .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0)) // Sort newest first
                           .map((update, index) => {
-                            // Defensive check to ensure the update object is valid
-                            if (!update || typeof update.text !== 'string') {
-                              return null; // Skip rendering if data is malformed
-                            }
-                            const updateDate = update.at?.toDate ? update.at.toDate() : null;
+                            if (!update || typeof update.text !== 'string') return null; // Skip invalid entries
+                            const updateDate = update.at?.toDate();
                             return (
-                              <li key={index} className="text-xs text-gray-800 bg-gray-50 p-2 rounded-lg">
-                                <p className="font-medium">"{update.text}"</p>
+                              <li key={index} className="text-sm text-gray-800 bg-pink-50/50 p-3 rounded-lg border border-pink-100">
+                                <p className="font-medium text-gray-900">"{update.text}"</p>
                                 {updateDate && (
-                                  <p className="text-[10px] text-gray-500 mt-1">{updateDate.toLocaleString()}</p>
+                                  <p className="text-xs text-gray-500 mt-1 text-right">{updateDate.toLocaleString()}</p>
                                 )}
                               </li>
                             );
