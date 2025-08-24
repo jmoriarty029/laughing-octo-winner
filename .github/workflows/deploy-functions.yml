@@ -1,0 +1,25 @@
+name: Deploy to Firebase Functions
+
+on:
+  push:
+    branches:
+      - main # Or whatever your main branch is called
+    paths:
+      - 'functions/**' # Only run when files in the functions folder change
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # This step authenticates using the service account key
+      - name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Deploy to Firebase'
+        uses: 'w9jds/firebase-action@master'
+        with:
+          args: 'deploy --only functions'
