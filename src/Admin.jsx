@@ -5,8 +5,7 @@ import {
   collection, onSnapshot, orderBy, query, updateDoc, doc, getDoc, deleteDoc
 } from 'firebase/firestore';
 import usePageMeta from './usePageMeta';
-
-// This component is now a fully authenticated admin panel.
+import NotificationButton from './NotificationButton'; // 1. Import the notification button
 
 export default function Admin() {
   usePageMeta({
@@ -34,9 +33,6 @@ export default function Admin() {
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // --- DEFINITIVE AUTH FIX ---
-      // We now check if the user is anonymous. If they are, we treat them
-      // as logged out for the admin panel, forcing the login form to show.
       if (user && !user.isAnonymous) {
         setAdminUser(user);
       } else {
@@ -60,7 +56,6 @@ export default function Admin() {
       setItems(list);
     }, (error) => {
       console.error("Firestore subscription error:", error);
-      // Handle read error, maybe show a message to the admin
     });
     return () => unsub();
   }, [adminUser]);
@@ -83,8 +78,6 @@ export default function Admin() {
     await updateDoc(doc(db, 'grievances', id), { status });
   }
 
-  // This function now reads the document, modifies the updates array,
-  // and writes it back, avoiding the arrayUnion/serverTimestamp conflict.
   async function addNote(id, text) {
     const noteInput = document.getElementById(`note-${id}`);
     const postButton = document.getElementById(`post-btn-${id}`);
@@ -96,24 +89,11 @@ export default function Admin() {
     try {
       const grievanceRef = doc(db, 'grievances', id);
       const grievanceSnap = await getDoc(grievanceRef);
-
-      if (!grievanceSnap.exists()) {
-        throw new Error("Grievance document not found!");
-      }
-
-      const existingData = grievanceSnap.data();
-      const existingUpdates = existingData.updates || [];
-
-      const newUpdate = {
-        text: text.trim(),
-        at: new Date() // Using a client-side timestamp is the correct approach here.
-      };
-
-      const newUpdates = [...existingUpdates, newUpdate];
-
-      await updateDoc(grievanceRef, {
-        updates: newUpdates
-      });
+      if (!grievanceSnap.exists()) throw new Error("Grievance not found!");
+      
+      const existingUpdates = grievanceSnap.data().updates || [];
+      const newUpdate = { text: text.trim(), at: new Date() };
+      await updateDoc(grievanceRef, { updates: [...existingUpdates, newUpdate] });
 
       if (noteInput) noteInput.value = '';
       postButton.innerText = 'Posted!';
@@ -162,22 +142,8 @@ export default function Admin() {
           <h1 className="text-2xl font-bold mb-2">🛠️ Admin Login</h1>
           <p className="text-sm text-gray-600 mb-4">Please sign in with your admin account.</p>
           <div className="space-y-3">
-            <input 
-              type="email" 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Email"
-              required
-            />
-            <input 
-              type="password" 
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="border rounded-xl px-3 py-2 w-full" 
-              placeholder="Password"
-              required
-            />
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Email" required />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="border rounded-xl px-3 py-2 w-full" placeholder="Password" required />
           </div>
           {loginError && <p className="text-red-500 text-sm mt-3">{loginError}</p>}
           <button type="submit" className="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white w-full">Sign In</button>
@@ -199,8 +165,11 @@ export default function Admin() {
           <input value={term} onChange={e=>setTerm(e.target.value)} className="border rounded-xl px-3 py-2" placeholder="Search…" />
         </div>
       </header>
+      
+      {/* 2. Render the notification button */}
+      <NotificationButton user={adminUser} />
 
-      <section className="grid grid-cols-3 gap-3 mb-6">
+      <section className="grid grid-cols-3 gap-3 my-6">
         <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Total</p><p className="text-2xl font-bold">{summary.total}</p></div>
         <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Working</p><p className="text-2xl font-bold">{summary.working}</p></div>
         <div className="bg-white rounded-2xl shadow p-4"><p className="text-xs text-gray-500">Resolved</p><p className="text-2xl font-bold">{summary.resolved}</p></div>
@@ -227,16 +196,12 @@ export default function Admin() {
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <h4 className="text-xs font-semibold text-slate-600 mb-2">Posted Updates</h4>
                     <ul className="space-y-1.5">
-                      {[...g.updates]
-                        .sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0))
-                        .map((update, index) => (
+                      {[...g.updates].sort((a, b) => (b.at?.seconds || 0) - (a.at?.seconds || 0)).map((update, index) => (
                           <li key={index} className="text-xs text-gray-800 bg-slate-50 p-2 rounded-lg border border-slate-200">
                             <p>"{update.text}"</p>
-                            <p className="text-right text-gray-500 mt-1">
-                              {update.at?.toDate?.().toLocaleString() || ''}
-                            </p>
+                            <p className="text-right text-gray-500 mt-1">{update.at?.toDate?.().toLocaleString() || ''}</p>
                           </li>
-                        ))}
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -247,10 +212,7 @@ export default function Admin() {
                 </select>
                 <textarea id={`note-${g.id}`} rows={2} placeholder="Add update…" className="border rounded-lg px-2 py-1"></textarea>
                 <div className="flex gap-2">
-                    <button id={`post-btn-${g.id}`} onClick={()=>{
-                      const t = document.getElementById(`note-${g.id}`).value;
-                      addNote(g.id, t);
-                    }} className="flex-grow px-3 py-1 rounded-lg bg-slate-800 text-white text-sm transition-colors duration-200 disabled:bg-slate-400">Post Update</button>
+                    <button id={`post-btn-${g.id}`} onClick={()=>{ const t = document.getElementById(`note-${g.id}`).value; addNote(g.id, t);}} className="flex-grow px-3 py-1 rounded-lg bg-slate-800 text-white text-sm transition-colors duration-200 disabled:bg-slate-400">Post Update</button>
                     <button onClick={() => deleteGrievance(g.id)} className="px-3 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">Delete</button>
                 </div>
               </div>
