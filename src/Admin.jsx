@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { db } from './firebase'
 import {
-  collection, onSnapshot, orderBy, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
+  collection, onSnapshot, query, updateDoc, doc, arrayUnion, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
 import usePageMeta from './usePageMeta'; // <-- 1. IMPORT THE HOOK
 
@@ -26,10 +26,15 @@ export default function Admin() {
 
   useEffect(() => {
     if (!ok) return
-    const q = query(collection(db, 'grievances'), orderBy('createdAt', 'desc'))
+    const q = query(collection(db, 'grievances'))
     const unsub = onSnapshot(q, (snap) => {
       const list = []
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }))
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0
+        const timeB = b.createdAt?.seconds || 0
+        return timeB - timeA
+      })
       setItems(list)
     })
     return () => unsub()
@@ -156,4 +161,4 @@ export default function Admin() {
       </section>
     </div>
   )
-            }
+      }
