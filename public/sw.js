@@ -1,10 +1,13 @@
-const CACHE = 'gp-cache-v1';
+const CACHE = 'love-ledger-cache-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
+  '/favicon.ico'
 ];
 
 self.addEventListener('install', (e) => {
